@@ -1,0 +1,6 @@
+# The factory's scripts run on Linux runners: keep LF line endings even when committed from Windows.
+factory/bin/*        text eol=lf
+factory/image/*      text eol=lf
+*.py                 text eol=lf
+*.yml                text eol=lf
+*.sh                 text eol=lf

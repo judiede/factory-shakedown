@@ -1,0 +1,176 @@
+# Stop 2, Spec, and Gate 1 sparring: the spec agent turns a ticket into a spec pull request.
+# Started by intake (mode auto), or by the event router: a review that requests changes or `/factory revise`
+# (mode revise), and a `/factory <question>` comment on the spec pull request (mode discuss: answer, don't edit).
+# Every secret goes only to the step that needs it; the agent step holds just the model key.
+name: "Factory: spec (stop 2)"
+run-name: "Spec ${{ inputs.key }} (${{ inputs.mode }})"
+
+on:
+  workflow_dispatch:
+    inputs:
+      key:
+        description: Jira key, such as SALES-412
+        required: true
+        type: string
+      mode:
+        description: auto writes or updates the spec; revise answers a Gate 1 review; discuss answers /factory questions
+        required: false
+        default: auto
+        type: choice
+        options: [auto, revise, discuss]
+      pr:
+        description: Spec pull request number (revise and discuss)
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  pull-requests: write # label and comment when the budget stops a run
+  packages: read
+
+concurrency:
+  group: factory-spec-${{ inputs.key }}
+  cancel-in-progress: false
+
+jobs:
+  spec:
+    if: vars.FACTORY_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    environment: factory-agent
+    timeout-minutes: 120
+    env:
+      FACTORY_IMAGE: ${{ vars.FACTORY_IMAGE }}
+      FACTORY_DEFAULT_BRANCH: ${{ vars.FACTORY_DEFAULT_BRANCH || 'main' }}
+      FX: bash _kit/factory/bin/in-image
+      KEY: ${{ inputs.key }}
+      MODE: ${{ inputs.mode }}
+      PR: ${{ inputs.pr }}
+      JIRA_BASE_URL: ${{ vars.JIRA_BASE_URL }}
+      JIRA_USER: ${{ vars.JIRA_USER }}
+      SF_DEVHUB_USERNAME: ${{ vars.SF_DEVHUB_USERNAME }}
+      SF_DEVHUB_CLIENT_ID: ${{ vars.SF_DEVHUB_CLIENT_ID }}
+      SF_DEVHUB_URL: ${{ vars.SF_DEVHUB_URL }}
+      SF_SPEC_USERNAME: ${{ vars.SF_SPEC_USERNAME }}
+      SF_SPEC_CLIENT_ID: ${{ vars.SF_SPEC_CLIENT_ID }}
+      SF_SANDBOX_URL: ${{ vars.SF_SANDBOX_URL }}
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@v2.22.1
+        with:
+          egress-policy: audit
+
+      - name: Check the inputs
+        run: |
+          echo "FACTORY_JOB_STARTED=$(date +%s)" >> "$GITHUB_ENV"
+          [[ "$KEY" =~ ^[A-Z][A-Z0-9_]*-[1-9][0-9]*$ ]] || { echo "::error::Not a Jira key: $KEY"; exit 1; }
+          [[ -z "$PR" || "$PR" =~ ^[0-9]+$ ]] || { echo "::error::Not a pull request number: $PR"; exit 1; }
+
+      - name: Check out the factory kit
+        uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ vars.FACTORY_DEFAULT_BRANCH || 'main' }}
+          path: _kit
+          persist-credentials: false
+          sparse-checkout: |
+            factory
+
+      - uses: docker/login-action@v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull the factory image
+        run: docker pull "$FACTORY_IMAGE"
+
+      - name: Plan the run (base branch, mode, budget)
+        id: prep
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: $FX -e GH_TOKEN -- factory spec prepare --key "$KEY" --mode "$MODE" --pr "$PR"
+
+      # Only the one ref the agent works from, without history, so no later commit can give the answer away.
+      - name: Check out the work tree
+        if: steps.prep.outputs.stop != 'true'
+        uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ steps.prep.outputs.checkout_ref }}
+          path: work
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Prepare the workspace
+        if: steps.prep.outputs.stop != 'true'
+        run: $FX -- factory workspace --dir work
+
+      - name: Fetch the ticket (personal data redacted)
+        if: steps.prep.outputs.stop != 'true'
+        env:
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+        run: $FX -e JIRA_API_TOKEN -- factory ticket fetch --key "$KEY" --dir work
+
+      - name: Prepare the agent's org
+        id: org
+        if: steps.prep.outputs.stop != 'true'
+        env:
+          SF_DEVHUB_JWT_KEY: ${{ secrets.SF_DEVHUB_JWT_KEY }}
+          SF_SPEC_JWT_KEY: ${{ secrets.SF_SPEC_JWT_KEY }}
+        run: $FX -e SF_DEVHUB_JWT_KEY -e SF_SPEC_JWT_KEY -- factory org up --for spec --dir work
+
+      - name: Run the spec agent
+        id: agent
+        if: steps.prep.outputs.stop != 'true'
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ORG_READY: ${{ steps.org.outputs.ready }}
+        run: $FX -e ANTHROPIC_API_KEY -- factory spec run --dir work --org-ready "$ORG_READY"
+
+      - name: Create the factory App token
+        id: app
+        if: steps.agent.outcome == 'success'
+        uses: actions/create-github-app-token@v3.2.0
+        with:
+          client-id: ${{ vars.FACTORY_APP_CLIENT_ID }}
+          private-key: ${{ secrets.FACTORY_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+          permission-issues: write
+
+      - name: Commit, push and open the spec pull request
+        id: publish
+        if: steps.agent.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          FACTORY_APP_SLUG: ${{ steps.app.outputs.app-slug }}
+        run: $FX -e GH_TOKEN -- factory spec publish --dir work
+
+      - name: Update the Jira ticket
+        if: steps.publish.outcome == 'success' && steps.prep.outputs.mode != 'discuss'
+        env:
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+        run: $FX -e JIRA_API_TOKEN -- factory spec notify
+
+      - name: Delete the scratch org
+        if: always() && steps.org.outcome != 'skipped'
+        env:
+          SF_DEVHUB_JWT_KEY: ${{ secrets.SF_DEVHUB_JWT_KEY }}
+        run: $FX -e SF_DEVHUB_JWT_KEY -- factory org down
+
+      - name: Tell Jira the run failed
+        if: failure()
+        env:
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+        run: $FX -e JIRA_API_TOKEN -- factory failed --key "$KEY" --stage spec
+
+      - name: Keep the transcript, prompt and step state
+        if: always() && steps.prep.outcome == 'success'
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: spec-${{ inputs.key }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/factory-logs
+            work/.factory-out
+            factory-in
+          include-hidden-files: true
+          retention-days: 90
+          if-no-files-found: ignore

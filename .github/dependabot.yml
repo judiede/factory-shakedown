@@ -1,0 +1,15 @@
+# Proposes version updates for the factory's pinned dependencies. Each update is a reviewed pull request.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 14 # only versions at least two weeks old
+  - package-ecosystem: docker
+    directory: /factory/image
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 14

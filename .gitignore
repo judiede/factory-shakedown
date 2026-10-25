@@ -1,0 +1,27 @@
+# Salesforce DX
+.sf/
+.sfdx/
+.localdevserver/
+deploy-options.json
+
+# Node
+node_modules/
+coverage/
+npm-debug.log*
+
+# Factory working files
+.factory-out/
+factory-in/
+_kit/
+__pycache__/
+*.pyc
+
+# Never commit keys
+*.key
+*.pem
+
+# OS and editors
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

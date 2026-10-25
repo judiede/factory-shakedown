@@ -1,0 +1,16 @@
+<template>
+    <lightning-card title="Account summary" icon-name="standard:opportunity">
+        <div class="slds-p-horizontal_medium">
+            <template lwc:if={summary}>
+                <p class="open-count">Open opportunities: {summary.openCount}</p>
+                <p class="open-amount">
+                    Open pipeline:
+                    <lightning-formatted-number value={summary.openAmount} format-style="currency"></lightning-formatted-number>
+                </p>
+            </template>
+            <template lwc:elseif={error}>
+                <p class="error">{error}</p>
+            </template>
+        </div>
+    </lightning-card>
+</template>

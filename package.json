@@ -1,0 +1,19 @@
+{
+  "name": "factory-shakedown",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Test project for the agentic engineering factory shakedown",
+  "scripts": {
+    "test": "npm run test:unit",
+    "test:unit": "sfdx-lwc-jest",
+    "test:unit:coverage": "sfdx-lwc-jest --coverage",
+    "prettier": "prettier --write \"**/*.{cls,cmp,component,css,html,js,json,md,page,trigger,xml,yaml,yml}\"",
+    "prettier:verify": "prettier --check \"**/*.{cls,cmp,component,css,html,js,json,md,page,trigger,xml,yaml,yml}\""
+  },
+  "devDependencies": {
+    "@prettier/plugin-xml": "3.4.2",
+    "@salesforce/sfdx-lwc-jest": "7.9.0",
+    "prettier": "3.9.9",
+    "prettier-plugin-apex": "2.3.0"
+  }
+}

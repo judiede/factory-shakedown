@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+# Run one workflow step inside the pinned factory image.
+#
+#   bash _kit/factory/bin/in-image [-e NAME]... -- command [args...]
+#
+# Secrets reach the container only when a step names them with -e, so each step sees just its own.
+# Non-secret settings (GITHUB_*, FACTORY_*, Jira and Salesforce user names, client IDs and URLs) pass by name.
+# Salesforce logins persist between steps of a job in $RUNNER_TEMP/factory-home; nothing else does.
+# "factory" as the command runs the factory kit from the checked-out default branch (_kit).
+set -euo pipefail
+
+: "${FACTORY_IMAGE:?Set FACTORY_IMAGE (repository variable) to the factory image reference}"
+: "${GITHUB_WORKSPACE:?}" "${RUNNER_TEMP:?}"
+
+pass=()
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -e) pass+=(-e "$2"); shift 2 ;;
+    --) shift; break ;;
+    *) echo "in-image: unknown option $1" >&2; exit 2 ;;
+  esac
+done
+[[ $# -gt 0 ]] || { echo "in-image: no command given" >&2; exit 2; }
+
+for name in $(compgen -e); do
+  case "$name" in
+    GITHUB_TOKEN|*_KEY|*_TOKEN|*_SECRET|*_PASSWORD) ;;
+    GITHUB_*|RUNNER_*|FACTORY_*|CI|JIRA_BASE_URL|JIRA_USER|JIRA_PROJECT|SF_*_USERNAME|SF_*_CLIENT_ID|SF_*_URL)
+      pass+=(-e "$name") ;;
+  esac
+done
+
+kit="$GITHUB_WORKSPACE/_kit"
+home="$RUNNER_TEMP/factory-home"
+mkdir -p "$home/sf" "$home/sfdx"
+
+if [[ "$1" == "factory" ]]; then
+  shift
+  set -- python3 -m factory_kit "$@"
+fi
+
+exec docker run --rm \
+  -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" \
+  -v "$RUNNER_TEMP:$RUNNER_TEMP" \
+  -v "$home/sf:/root/.sf" \
+  -v "$home/sfdx:/root/.sfdx" \
+  -w "$GITHUB_WORKSPACE" \
+  -e "PYTHONPATH=$kit/factory" \
+  -e "FACTORY_POLICY=$kit/factory-policy.yml" \
+  "${pass[@]}" \
+  "$FACTORY_IMAGE" "$@"

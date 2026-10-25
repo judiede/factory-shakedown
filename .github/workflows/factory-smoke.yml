@@ -1,0 +1,108 @@
+# Step 1 check (poc-plan.md): every identity logs in, the model answers, and the Dev Hub creates a scratch org.
+name: "Factory: smoke test (Step 1 check)"
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  agent-identities:
+    runs-on: ubuntu-latest
+    environment: factory-agent
+    timeout-minutes: 45
+    env:
+      FACTORY_IMAGE: ${{ vars.FACTORY_IMAGE }}
+      FX: bash _kit/factory/bin/in-image
+      JIRA_BASE_URL: ${{ vars.JIRA_BASE_URL }}
+      JIRA_USER: ${{ vars.JIRA_USER }}
+      SF_DEVHUB_USERNAME: ${{ vars.SF_DEVHUB_USERNAME }}
+      SF_DEVHUB_CLIENT_ID: ${{ vars.SF_DEVHUB_CLIENT_ID }}
+      SF_DEVHUB_URL: ${{ vars.SF_DEVHUB_URL }}
+      SF_SPEC_USERNAME: ${{ vars.SF_SPEC_USERNAME }}
+      SF_SPEC_CLIENT_ID: ${{ vars.SF_SPEC_CLIENT_ID }}
+      SF_SANDBOX_URL: ${{ vars.SF_SANDBOX_URL }}
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@v2.22.1
+        with:
+          egress-policy: audit
+
+      - name: Check out the factory kit and the repo
+        uses: actions/checkout@v7.0.1
+        with:
+          path: _kit
+          persist-credentials: false
+
+      - uses: docker/login-action@v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull the factory image
+        run: docker pull "$FACTORY_IMAGE"
+
+      - name: GitHub App token
+        id: app
+        uses: actions/create-github-app-token@v3.2.0
+        with:
+          client-id: ${{ vars.FACTORY_APP_CLIENT_ID }}
+          private-key: ${{ secrets.FACTORY_APP_PRIVATE_KEY }}
+          permission-contents: read
+
+      - name: Jira service account
+        env:
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+        run: $FX -e JIRA_API_TOKEN -- factory smoke jira
+
+      - name: Model
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: $FX -e ANTHROPIC_API_KEY -- factory smoke model
+
+      - name: Dev Hub and a scratch org
+        env:
+          SF_DEVHUB_JWT_KEY: ${{ secrets.SF_DEVHUB_JWT_KEY }}
+        run: $FX -e SF_DEVHUB_JWT_KEY -- factory smoke devhub --dir _kit
+
+      - name: Integration sandbox, spec agent user
+        env:
+          SF_SPEC_JWT_KEY: ${{ secrets.SF_SPEC_JWT_KEY }}
+        run: $FX -e SF_SPEC_JWT_KEY -- factory smoke spec
+
+  ci-identity:
+    runs-on: ubuntu-latest
+    environment: integration
+    timeout-minutes: 15
+    env:
+      FACTORY_IMAGE: ${{ vars.FACTORY_IMAGE }}
+      FX: bash _kit/factory/bin/in-image
+      SF_CI_USERNAME: ${{ vars.SF_CI_USERNAME }}
+      SF_CI_CLIENT_ID: ${{ vars.SF_CI_CLIENT_ID }}
+      SF_SANDBOX_URL: ${{ vars.SF_SANDBOX_URL }}
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@v2.22.1
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@v7.0.1
+        with:
+          path: _kit
+          persist-credentials: false
+
+      - uses: docker/login-action@v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Integration sandbox, CI validator user
+        env:
+          SF_CI_JWT_KEY: ${{ secrets.SF_CI_JWT_KEY }}
+        run: |
+          docker pull "$FACTORY_IMAGE"
+          $FX -e SF_CI_JWT_KEY -- factory smoke ci

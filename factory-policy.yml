@@ -1,0 +1,84 @@
+# Factory policy: the PoC's stand-in for the factory org's Custom Metadata.
+# Owned by the factory admins through CODEOWNERS. Workflows always read it from the default branch,
+# so a pull request can't change the rules it is judged by.
+
+version: 1
+
+# Model per agent role. With Bedrock or Vertex, use that platform's model IDs.
+models:
+  spec: claude-opus-5-5
+  build: claude-sonnet-5-5
+  review: claude-sonnet-5-5
+
+intake:
+  ready_label: factory-ready              # people add this to start the factory
+  active_label: factory-active
+  clarification_label: factory-needs-clarification
+  merged_label: factory-merged
+  needs_human_label: factory-needs-human
+  max_dispatch_per_poll: 3                # tickets started per poll (every 10 minutes)
+
+# Budgets per task, by the work type the spec gives it. Set the cost numbers in "Before we start".
+# Overruns label the pull request needs-human.
+budgets:
+  small:  {fix_attempts: 3, revision_rounds: 2, cost_usd: 5,  time_minutes: 30, max_turns: 80}
+  medium: {fix_attempts: 3, revision_rounds: 2, cost_usd: 10, time_minutes: 45, max_turns: 120}
+  large:  {fix_attempts: 3, revision_rounds: 2, cost_usd: 20, time_minutes: 60, max_turns: 160}
+  spec:   {revision_rounds: 3, cost_usd: 8, time_minutes: 30, max_turns: 100}
+  review: {cost_usd: 2, time_minutes: 15, max_turns: 40}
+  # Sparring on a spec pull request (/factory <question>): replies per pull request, and per reply.
+  discuss: {turns: 10, cost_usd: 1.5, time_minutes: 10, max_turns: 30}
+  ticket_cost_usd: 20                     # shakedown: no new tasks start once a ticket has spent this
+
+scope:
+  # The spec agent may write only its spec and new ADRs.
+  spec_allowed: ["docs/specs/{key}.md", "docs/adr/*.md"]
+  # Build tasks may always update feature docs, on top of the task's allowed paths.
+  always_allowed: ["docs/features/**"]
+  # No agent may change these, whatever a spec says.
+  forbidden:
+    - .github/**
+    - .claude/**
+    - .mcp.json
+    - .sf/**
+    - .sfdx/**
+    - factory/**
+    - factory-policy.yml
+    - AGENTS.md
+    - CLAUDE.md
+    - config/**
+    - sfdx-project.json
+    - package.json
+    - package-lock.json
+    - .forceignore
+    - .gitignore
+    - docs/specs/**
+    - docs/adr/**
+    - docs/architecture/**
+    - "**/profiles/**"
+
+docs:
+  features_dir: docs/features
+  unmapped_source_changes: warn            # warn | fail: source changes no feature doc claims
+  require_field_descriptions: true
+
+ci:
+  test_level: RunLocalTests
+  code_analyzer_rule_selector: Recommended
+  code_analyzer_severity_threshold: 2      # fail on high (2) and critical (1) findings
+
+redaction:
+  mode: redact                             # redact | stop: what to do when a ticket contains personal data
+
+scratch_org:
+  definition: config/project-scratch-def.json
+  duration_days: 1                         # a leaked org expires the next day
+  wait_minutes: 30
+
+# The only sites agents may fetch from.
+web_domains:
+  - developer.salesforce.com
+  - help.salesforce.com
+  - architect.salesforce.com
+
+results_branch: factory-results

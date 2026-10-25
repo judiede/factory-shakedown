@@ -1,0 +1,61 @@
+# Stop 1, Intake: every 10 minutes, tickets labeled factory-ready in the PoC Jira project start a spec run.
+# Polling avoids storing a GitHub token in Jira (poc-plan.md, Step 1).
+name: "Factory: intake (stop 1)"
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write # dispatch spec runs
+  packages: read
+
+concurrency:
+  group: factory-intake
+  cancel-in-progress: false
+
+jobs:
+  poll:
+    # Kill switch: set the repository variable FACTORY_ENABLED to anything but "true" to stop the factory.
+    if: vars.FACTORY_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    environment: factory-agent
+    timeout-minutes: 15
+    env:
+      FACTORY_IMAGE: ${{ vars.FACTORY_IMAGE }}
+      FACTORY_DEFAULT_BRANCH: ${{ vars.FACTORY_DEFAULT_BRANCH || 'main' }}
+      FX: bash _kit/factory/bin/in-image
+      JIRA_BASE_URL: ${{ vars.JIRA_BASE_URL }}
+      JIRA_USER: ${{ vars.JIRA_USER }}
+      JIRA_PROJECT: ${{ vars.JIRA_PROJECT }}
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@v2.22.1
+        with:
+          egress-policy: audit
+
+      - name: Check out the factory kit
+        uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ vars.FACTORY_DEFAULT_BRANCH || 'main' }}
+          path: _kit
+          persist-credentials: false
+          sparse-checkout: |
+            factory
+
+      - uses: docker/login-action@v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull the factory image
+        run: docker pull "$FACTORY_IMAGE"
+
+      - name: Start spec runs for factory-ready tickets
+        env:
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+        run: $FX -e JIRA_API_TOKEN -e GH_TOKEN -- factory intake

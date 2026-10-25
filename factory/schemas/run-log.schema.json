@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "factory/run-log.schema.json",
+  "title": "Factory run log record",
+  "description": "One record per agent job, stored as runs/<yyyy-mm>/<ticket>-<task>-<role>-<run>-<attempt>.json on the factory-results branch. Step 6 of the PoC reads these.",
+  "type": "object",
+  "required": ["schema", "ticket", "role", "mode", "outcome", "run_id", "run_url", "recorded_at"],
+  "properties": {
+    "schema": {"const": 1},
+    "ticket": {"type": "string", "pattern": "^[A-Z][A-Z0-9_]*-[1-9][0-9]*$"},
+    "task": {"type": ["string", "null"], "pattern": "^[a-z]$"},
+    "role": {"enum": ["spec", "build", "review"]},
+    "mode": {"enum": ["new", "update", "revise", "discuss", "build", "fix", "review"]},
+    "outcome": {
+      "type": "string",
+      "description": "spec: spec_ready | questions | checks_failed | scope_violation | no_spec | agent_failed. spec discuss: answered | no_reply | scope_violation. build: changes | overrun | needs_spec_change | no_changes | scope_violation. review: reviewed | bad_review_file | agent_failed."
+    },
+    "turn": {"type": ["integer", "null"], "description": "Spec discussions: the factory's reply number on the pull request"},
+    "questions_answered": {"type": "integer", "description": "Spec discussions: /factory questions answered by this reply"},
+    "run_id": {"type": "string"},
+    "run_attempt": {"type": "string"},
+    "run_url": {"type": "string"},
+    "recorded_at": {"type": "string", "format": "date-time"},
+    "model": {"type": ["string", "null"]},
+    "prompt": {"type": ["string", "null"]},
+    "prompt_sha": {"type": ["string", "null"]},
+    "agent_outcome": {"type": ["string", "null"], "description": "Claude Code's result subtype, or timeout"},
+    "num_turns": {"type": ["integer", "null"]},
+    "agent_duration_s": {"type": ["number", "null"]},
+    "job_duration_s": {"type": ["number", "null"], "description": "Approximate Actions time for the job"},
+    "cost_usd": {"type": ["number", "null"], "description": "Claude Code's client-side estimate"},
+    "tokens": {
+      "type": ["object", "null"],
+      "properties": {
+        "input": {"type": ["integer", "null"]},
+        "output": {"type": ["integer", "null"]},
+        "cache_read": {"type": ["integer", "null"]},
+        "cache_creation": {"type": ["integer", "null"]}
+      }
+    },
+    "pr_url": {"type": ["string", "null"]},
+    "pr": {"type": ["integer", "null"]},
+    "base": {"type": "string"},
+    "work_type": {"enum": ["small", "medium", "large"]},
+    "attempt": {"type": "integer"},
+    "changed_files": {"type": "integer"},
+    "scope_violations": {"type": "integer"},
+    "lint_errors": {"type": "integer"},
+    "grounding_errors": {"type": "integer"},
+    "questions": {"type": "boolean"},
+    "screenshots": {"type": "integer"},
+    "redactions": {"type": "object", "additionalProperties": {"type": "integer"}},
+    "review_comments": {"type": "object", "additionalProperties": {"type": "integer"}, "description": "Reviewer agent comments by category"}
+  }
+}

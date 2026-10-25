@@ -1,0 +1,14 @@
+{
+  "orgName": "Factory scratch org",
+  "description": "Starting point from the standard SFDX template. Before Step 2 of the PoC, add the features and settings production uses (multi-currency, person accounts, Experience Cloud and so on), or the agents work against a different org.",
+  "edition": "Enterprise",
+  "features": ["EnableSetPasswordInApi"],
+  "settings": {
+    "lightningExperienceSettings": {
+      "enableS1DesktopEnabled": true
+    },
+    "mobileSettings": {
+      "enableS1EncryptedStoragePref2": false
+    }
+  }
+}

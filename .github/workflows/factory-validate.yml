@@ -1,0 +1,226 @@
+# Stop 6, CI: validates every pull request, from people and agents alike, independently of the agent.
+# Make the jobs guard, static, scratch-org and sandbox required checks in the branch rulesets.
+# guard runs first and without secrets; nothing with credentials starts unless it passes.
+name: "Factory: validate (stop 6)"
+
+on:
+  pull_request:
+    branches: [main, "poc/**"]
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  packages: read
+
+concurrency:
+  group: factory-validate-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  FACTORY_IMAGE: ${{ vars.FACTORY_IMAGE }}
+  FX: bash _kit/factory/bin/in-image
+  BASE_REF: ${{ github.base_ref }}
+  HEAD_REF: ${{ github.head_ref }}
+
+jobs:
+  guard:
+    name: guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    outputs:
+      source_changed: ${{ steps.guard.outputs.source_changed }}
+      kind: ${{ steps.guard.outputs.kind }}
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@v2.22.1
+        with:
+          egress-policy: audit
+
+      # The checks and the policy come from the default branch, so a pull request can't change its own rules.
+      - name: Check out the factory kit
+        uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ vars.FACTORY_DEFAULT_BRANCH || 'main' }}
+          path: _kit
+          persist-credentials: false
+          sparse-checkout: |
+            factory
+
+      - name: Check out the pull request
+        uses: actions/checkout@v7.0.1
+        with:
+          path: work
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: docker/login-action@v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull the factory image
+        run: docker pull "$FACTORY_IMAGE"
+
+      - name: Scope, spec and docs checks
+        id: guard
+        run: $FX -- factory guard --dir work --base-ref "$BASE_REF" --head-ref "$HEAD_REF"
+
+      - name: Secret scan of the new commits
+        run: $FX -- gitleaks git work --log-opts="origin/$BASE_REF..HEAD" --redact --no-banner --exit-code 1
+
+  static:
+    name: static
+    needs: guard
+    if: needs.guard.outputs.source_changed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@v2.22.1
+        with:
+          egress-policy: audit
+
+      - name: Check out the factory kit
+        uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ vars.FACTORY_DEFAULT_BRANCH || 'main' }}
+          path: _kit
+          persist-credentials: false
+          sparse-checkout: |
+            factory
+
+      - name: Check out the pull request
+        uses: actions/checkout@v7.0.1
+        with:
+          path: work
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: docker/login-action@v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull the factory image
+        run: docker pull "$FACTORY_IMAGE"
+
+      - name: Jest and Code Analyzer
+        run: $FX -- factory ci static --dir work --base-ref "$BASE_REF"
+
+      - name: Keep the Code Analyzer report
+        if: always()
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: code-analyzer-${{ github.event.pull_request.number }}-${{ github.run_attempt }}
+          path: work/.factory-out
+          include-hidden-files: true
+          if-no-files-found: ignore
+
+  scratch-org:
+    name: scratch-org
+    needs: guard
+    # Replay pull requests: today's sandbox has moved on from the old base, so validate in a fresh scratch org.
+    if: needs.guard.outputs.source_changed == 'true' && startsWith(github.base_ref, 'poc/')
+    runs-on: ubuntu-latest
+    environment: integration
+    timeout-minutes: 120
+    env:
+      SF_DEVHUB_USERNAME: ${{ vars.SF_DEVHUB_USERNAME }}
+      SF_DEVHUB_CLIENT_ID: ${{ vars.SF_DEVHUB_CLIENT_ID }}
+      SF_DEVHUB_URL: ${{ vars.SF_DEVHUB_URL }}
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@v2.22.1
+        with:
+          egress-policy: audit
+
+      - name: Check out the factory kit
+        uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ vars.FACTORY_DEFAULT_BRANCH || 'main' }}
+          path: _kit
+          persist-credentials: false
+          sparse-checkout: |
+            factory
+
+      - name: Check out the pull request
+        uses: actions/checkout@v7.0.1
+        with:
+          path: work
+          persist-credentials: false
+
+      - uses: docker/login-action@v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull the factory image
+        run: docker pull "$FACTORY_IMAGE"
+
+      - name: Deploy to a fresh scratch org and run the Apex tests
+        env:
+          SF_DEVHUB_JWT_KEY: ${{ secrets.SF_DEVHUB_JWT_KEY }}
+        run: $FX -e SF_DEVHUB_JWT_KEY -- factory ci scratch --dir work
+
+      - name: Keep the test results
+        if: always()
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: apex-tests-${{ github.event.pull_request.number }}-${{ github.run_attempt }}
+          path: work/.factory-out
+          include-hidden-files: true
+          if-no-files-found: ignore
+
+  sandbox:
+    name: sandbox
+    needs: guard
+    if: needs.guard.outputs.source_changed == 'true' && !startsWith(github.base_ref, 'poc/')
+    runs-on: ubuntu-latest
+    environment: integration
+    timeout-minutes: 150
+    # One deployment at a time: the sandbox would queue them anyway.
+    concurrency:
+      group: integration-sandbox
+      cancel-in-progress: false
+    env:
+      SF_CI_USERNAME: ${{ vars.SF_CI_USERNAME }}
+      SF_CI_CLIENT_ID: ${{ vars.SF_CI_CLIENT_ID }}
+      SF_SANDBOX_URL: ${{ vars.SF_SANDBOX_URL }}
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@v2.22.1
+        with:
+          egress-policy: audit
+
+      - name: Check out the factory kit
+        uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ vars.FACTORY_DEFAULT_BRANCH || 'main' }}
+          path: _kit
+          persist-credentials: false
+          sparse-checkout: |
+            factory
+
+      - name: Check out the pull request
+        uses: actions/checkout@v7.0.1
+        with:
+          path: work
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: docker/login-action@v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull the factory image
+        run: docker pull "$FACTORY_IMAGE"
+
+      - name: Check-only deploy to the integration sandbox, with tests
+        env:
+          SF_CI_JWT_KEY: ${{ secrets.SF_CI_JWT_KEY }}
+        run: $FX -e SF_CI_JWT_KEY -- factory ci sandbox --dir work --base-ref "$BASE_REF"

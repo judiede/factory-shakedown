@@ -1,0 +1,113 @@
+# Stop 6, reviewer agent: comments on a factory pull request once CI is green, before the code owner reviews.
+# It posts COMMENT reviews only; approving and merging stay with people (Gate 2).
+name: "Factory: review (stop 6)"
+run-name: "Review #${{ inputs.pr }}"
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: Pull request number
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  pull-requests: read
+  packages: read
+
+concurrency:
+  group: factory-review-${{ inputs.pr }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    if: vars.FACTORY_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    environment: factory-agent
+    timeout-minutes: 45
+    env:
+      FACTORY_IMAGE: ${{ vars.FACTORY_IMAGE }}
+      FX: bash _kit/factory/bin/in-image
+      PR: ${{ inputs.pr }}
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@v2.22.1
+        with:
+          egress-policy: audit
+
+      - name: Check the input
+        run: |
+          echo "FACTORY_JOB_STARTED=$(date +%s)" >> "$GITHUB_ENV"
+          [[ "$PR" =~ ^[0-9]+$ ]] || { echo "::error::Not a pull request number: $PR"; exit 1; }
+
+      - name: Check out the factory kit
+        uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ vars.FACTORY_DEFAULT_BRANCH || 'main' }}
+          path: _kit
+          persist-credentials: false
+          sparse-checkout: |
+            factory
+
+      - uses: docker/login-action@v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull the factory image
+        run: docker pull "$FACTORY_IMAGE"
+
+      - name: Create the factory App token
+        id: app
+        uses: actions/create-github-app-token@v3.2.0
+        with:
+          client-id: ${{ vars.FACTORY_APP_CLIENT_ID }}
+          private-key: ${{ secrets.FACTORY_APP_PRIVATE_KEY }}
+          permission-pull-requests: write
+
+      - name: Decide whether to review, and fetch the diff
+        id: prep
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FACTORY_APP_SLUG: ${{ steps.app.outputs.app-slug }}
+        run: $FX -e GH_TOKEN -- factory review prepare --pr "$PR"
+
+      - name: Check out the pull request
+        if: steps.prep.outputs.stop != 'true'
+        uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ steps.prep.outputs.checkout_ref }}
+          path: work
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Prepare the workspace
+        if: steps.prep.outputs.stop != 'true'
+        run: $FX -- factory workspace --dir work
+
+      - name: Run the reviewer agent
+        id: agent
+        if: steps.prep.outputs.stop != 'true'
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: $FX -e ANTHROPIC_API_KEY -- factory review run --dir work
+
+      - name: Post the review
+        if: steps.agent.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+        run: $FX -e GH_TOKEN -- factory review publish
+
+      - name: Keep the transcript and the review
+        if: always() && steps.agent.outcome != 'skipped'
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: review-${{ inputs.pr }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/factory-logs
+            work/.factory-out
+          include-hidden-files: true
+          retention-days: 90
+          if-no-files-found: ignore

@@ -1,0 +1,184 @@
+# Stop 5, Build, and the stop 6 loops: one task, one branch, one scratch org, one pull request.
+#   build  - started by plan when the task's dependencies have merged
+#   fix    - started by the event router when CI fails (at most the budget's fix attempts)
+#   revise - started by the event router when a code owner requests changes at Gate 2
+name: "Factory: build (stop 5)"
+run-name: "Build ${{ inputs.key }}/${{ inputs.task }} (${{ inputs.mode }})"
+
+on:
+  workflow_dispatch:
+    inputs:
+      key:
+        description: Jira key, such as SALES-412
+        required: true
+        type: string
+      task:
+        description: Task ID from the spec's task breakdown (a, b, c...)
+        required: true
+        type: string
+      mode:
+        description: build a new task, fix CI, or revise after review
+        required: false
+        default: build
+        type: choice
+        options: [build, fix, revise]
+      pr:
+        description: Pull request number (fix and revise only)
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  pull-requests: write # label and comment when the budget stops a run
+  actions: read # read failed CI logs for fix runs
+  packages: read
+
+concurrency:
+  group: factory-build-${{ inputs.key }}-${{ inputs.task }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: vars.FACTORY_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    environment: factory-agent
+    timeout-minutes: 150
+    env:
+      FACTORY_IMAGE: ${{ vars.FACTORY_IMAGE }}
+      FACTORY_DEFAULT_BRANCH: ${{ vars.FACTORY_DEFAULT_BRANCH || 'main' }}
+      FX: bash _kit/factory/bin/in-image
+      KEY: ${{ inputs.key }}
+      TASK: ${{ inputs.task }}
+      MODE: ${{ inputs.mode }}
+      PR: ${{ inputs.pr }}
+      JIRA_BASE_URL: ${{ vars.JIRA_BASE_URL }}
+      JIRA_USER: ${{ vars.JIRA_USER }}
+      SF_DEVHUB_USERNAME: ${{ vars.SF_DEVHUB_USERNAME }}
+      SF_DEVHUB_CLIENT_ID: ${{ vars.SF_DEVHUB_CLIENT_ID }}
+      SF_DEVHUB_URL: ${{ vars.SF_DEVHUB_URL }}
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@v2.22.1
+        with:
+          egress-policy: audit
+
+      - name: Check the inputs
+        run: |
+          echo "FACTORY_JOB_STARTED=$(date +%s)" >> "$GITHUB_ENV"
+          [[ "$KEY" =~ ^[A-Z][A-Z0-9_]*-[1-9][0-9]*$ ]] || { echo "::error::Not a Jira key: $KEY"; exit 1; }
+          [[ "$TASK" =~ ^[a-z]$ ]] || { echo "::error::Not a task ID: $TASK"; exit 1; }
+          [[ -z "$PR" || "$PR" =~ ^[0-9]+$ ]] || { echo "::error::Not a pull request number: $PR"; exit 1; }
+
+      - name: Check out the factory kit
+        uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ vars.FACTORY_DEFAULT_BRANCH || 'main' }}
+          path: _kit
+          persist-credentials: false
+          sparse-checkout: |
+            factory
+
+      - uses: docker/login-action@v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull the factory image
+        run: docker pull "$FACTORY_IMAGE"
+
+      - name: Plan the run (task, branch, budget, feedback)
+        id: prep
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: $FX -e GH_TOKEN -- factory build prepare --key "$KEY" --task "$TASK" --mode "$MODE" --pr "$PR"
+
+      - name: Tell Jira the budget stopped the task
+        if: steps.prep.outputs.stop == 'true'
+        env:
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+          REASON: ${{ steps.prep.outputs.reason }}
+        run: |
+          echo "::notice::Stopped: $REASON"
+          $FX -e JIRA_API_TOKEN -- factory build stopped
+
+      - name: Check out the work tree
+        if: steps.prep.outputs.stop != 'true'
+        uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ steps.prep.outputs.checkout_ref }}
+          path: work
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Prepare the workspace
+        if: steps.prep.outputs.stop != 'true'
+        run: |
+          $FX -- factory workspace --dir work
+          # Jest needs the project's packages; lifecycle scripts stay off.
+          $FX -- bash -c 'cd work && if [ -f package-lock.json ]; then npm ci --ignore-scripts --no-audit; fi' || \
+            echo "::warning::npm ci failed; Jest may not run"
+
+      - name: Create the scratch org from the work tree
+        id: org
+        if: steps.prep.outputs.stop != 'true'
+        env:
+          SF_DEVHUB_JWT_KEY: ${{ secrets.SF_DEVHUB_JWT_KEY }}
+        run: $FX -e SF_DEVHUB_JWT_KEY -- factory org up --for build --dir work
+
+      - name: Run the build agent
+        id: agent
+        if: steps.prep.outputs.stop != 'true'
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: $FX -e ANTHROPIC_API_KEY -- factory build run --dir work
+
+      - name: Create the factory App token
+        id: app
+        if: steps.agent.outcome == 'success'
+        uses: actions/create-github-app-token@v3.2.0
+        with:
+          client-id: ${{ vars.FACTORY_APP_CLIENT_ID }}
+          private-key: ${{ secrets.FACTORY_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+          permission-issues: write
+
+      - name: Commit, push and open or update the pull request
+        id: publish
+        if: steps.agent.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          FACTORY_APP_SLUG: ${{ steps.app.outputs.app-slug }}
+        run: $FX -e GH_TOKEN -- factory build publish --dir work
+
+      - name: Update the Jira ticket
+        if: steps.publish.outcome == 'success'
+        env:
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+        run: $FX -e JIRA_API_TOKEN -- factory build notify
+
+      - name: Delete the scratch org
+        if: always() && steps.org.outcome != 'skipped'
+        env:
+          SF_DEVHUB_JWT_KEY: ${{ secrets.SF_DEVHUB_JWT_KEY }}
+        run: $FX -e SF_DEVHUB_JWT_KEY -- factory org down
+
+      - name: Tell Jira the run failed
+        if: failure()
+        env:
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+        run: $FX -e JIRA_API_TOKEN -- factory failed --key "$KEY" --stage "build ($MODE, task $TASK)"
+
+      - name: Keep the transcript, prompt and step state
+        if: always() && steps.prep.outcome == 'success'
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: build-${{ inputs.key }}-${{ inputs.task }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/factory-logs
+            work/.factory-out
+            factory-in
+          include-hidden-files: true
+          retention-days: 90
+          if-no-files-found: ignore
