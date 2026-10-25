@@ -13,3 +13,7 @@ updates:
       interval: weekly
     cooldown:
       default-days: 14
+    ignore:
+      # Moving Node.js to its next LTS major is a deliberate change, not an automatic one.
+      - dependency-name: node
+        update-types: ["version-update:semver-major"]
