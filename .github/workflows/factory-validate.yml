@@ -127,8 +127,8 @@ jobs:
     environment: integration
     timeout-minutes: 120
     env:
-      SF_DEVHUB_USERNAME: ${{ vars.SF_DEVHUB_USERNAME }}
-      SF_DEVHUB_CLIENT_ID: ${{ vars.SF_DEVHUB_CLIENT_ID }}
+      SF_DEVHUB_USERNAME: ${{ secrets.SF_DEVHUB_USERNAME || vars.SF_DEVHUB_USERNAME }}
+      SF_DEVHUB_CLIENT_ID: ${{ secrets.SF_DEVHUB_CLIENT_ID || vars.SF_DEVHUB_CLIENT_ID }}
       SF_DEVHUB_URL: ${{ vars.SF_DEVHUB_URL }}
     steps:
       - name: Harden the runner
@@ -186,8 +186,8 @@ jobs:
       group: integration-sandbox
       cancel-in-progress: false
     env:
-      SF_CI_USERNAME: ${{ vars.SF_CI_USERNAME }}
-      SF_CI_CLIENT_ID: ${{ vars.SF_CI_CLIENT_ID }}
+      SF_CI_USERNAME: ${{ secrets.SF_CI_USERNAME || vars.SF_CI_USERNAME }}
+      SF_CI_CLIENT_ID: ${{ secrets.SF_CI_CLIENT_ID || vars.SF_CI_CLIENT_ID }}
       SF_SANDBOX_URL: ${{ vars.SF_SANDBOX_URL }}
     steps:
       - name: Harden the runner

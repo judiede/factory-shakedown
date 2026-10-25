@@ -32,8 +32,8 @@ jobs:
       FACTORY_DEFAULT_BRANCH: ${{ vars.FACTORY_DEFAULT_BRANCH || 'main' }}
       FX: bash _kit/factory/bin/in-image
       KEY: ${{ inputs.key }}
-      JIRA_BASE_URL: ${{ vars.JIRA_BASE_URL }}
-      JIRA_USER: ${{ vars.JIRA_USER }}
+      JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL || vars.JIRA_BASE_URL }}
+      JIRA_USER: ${{ secrets.JIRA_USER || vars.JIRA_USER }}
     steps:
       - name: Harden the runner
         uses: step-security/harden-runner@v2.22.1

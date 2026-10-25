@@ -45,13 +45,13 @@ jobs:
       KEY: ${{ inputs.key }}
       MODE: ${{ inputs.mode }}
       PR: ${{ inputs.pr }}
-      JIRA_BASE_URL: ${{ vars.JIRA_BASE_URL }}
-      JIRA_USER: ${{ vars.JIRA_USER }}
-      SF_DEVHUB_USERNAME: ${{ vars.SF_DEVHUB_USERNAME }}
-      SF_DEVHUB_CLIENT_ID: ${{ vars.SF_DEVHUB_CLIENT_ID }}
+      JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL || vars.JIRA_BASE_URL }}
+      JIRA_USER: ${{ secrets.JIRA_USER || vars.JIRA_USER }}
+      SF_DEVHUB_USERNAME: ${{ secrets.SF_DEVHUB_USERNAME || vars.SF_DEVHUB_USERNAME }}
+      SF_DEVHUB_CLIENT_ID: ${{ secrets.SF_DEVHUB_CLIENT_ID || vars.SF_DEVHUB_CLIENT_ID }}
       SF_DEVHUB_URL: ${{ vars.SF_DEVHUB_URL }}
-      SF_SPEC_USERNAME: ${{ vars.SF_SPEC_USERNAME }}
-      SF_SPEC_CLIENT_ID: ${{ vars.SF_SPEC_CLIENT_ID }}
+      SF_SPEC_USERNAME: ${{ secrets.SF_SPEC_USERNAME || vars.SF_SPEC_USERNAME }}
+      SF_SPEC_CLIENT_ID: ${{ secrets.SF_SPEC_CLIENT_ID || vars.SF_SPEC_CLIENT_ID }}
       SF_SANDBOX_URL: ${{ vars.SF_SANDBOX_URL }}
     steps:
       - name: Harden the runner

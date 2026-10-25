@@ -69,8 +69,7 @@ In the Claude Console, create a workspace `factory-shakedown` with a spend limit
 ## 4. GitHub (about 20 minutes)
 
 1. Create an empty **public** repository `factory-shakedown`, with no README.
-2. In `C:\Users\diede\factory-shakedown`, replace `YOUR-GITHUB-USER` in `.github/CODEOWNERS` with your user name, commit,
-   and push:
+2. In `C:\Users\diede\factory-shakedown`, make sure `.github/CODEOWNERS` names your GitHub user, then push:
 
    ```powershell
    git add .github/CODEOWNERS; git commit -m "Set the code owner"
@@ -78,7 +77,9 @@ In the Claude Console, create a workspace `factory-shakedown` with a spend limit
    git push -u origin main
    ```
 
-3. Settings → General: turn on **Automatically delete head branches**. Settings → Actions → General: workflow
+3. Settings → Code security: turn on **secret scanning** and **push protection** (free on public repositories).
+   Settings → Moderation options → Interaction limits: **limit to collaborators**. Settings → General: turn on
+   **Automatically delete head branches**. Settings → Actions → General: workflow
    permissions **Read repository contents and packages**; leave *Allow GitHub Actions to create and approve pull
    requests* off; require approval for fork pull requests from outside collaborators.
 4. **GitHub App**: your profile → Settings → Developer settings → GitHub Apps → **New GitHub App**:
@@ -93,7 +94,10 @@ In the Claude Console, create a workspace `factory-shakedown` with a spend limit
      `FACTORY_APP_PRIVATE_KEY` (the `.pem` contents), `SF_DEVHUB_JWT_KEY` and `SF_SPEC_JWT_KEY` (both the contents of
      `factory-jwt.key`).
    - `integration`, no branch limit. Secrets: `SF_CI_JWT_KEY` and `SF_DEVHUB_JWT_KEY` (both `factory-jwt.key`).
-7. **Variables** (Settings → Secrets and variables → Actions → Variables):
+7. **Repository secrets and variables** (Settings → Secrets and variables → Actions). In a public repository,
+   store the values that identify you as **repository secrets**, so they're masked in the public logs: `JIRA_BASE_URL`,
+   `JIRA_USER`, the three `SF_*_USERNAME` and the three `SF_*_CLIENT_ID`. The workflows read a secret first and fall back
+   to a variable of the same name. The rest are **variables**:
 
    | Variable | Value |
    | --- | --- |
@@ -101,9 +105,7 @@ In the Claude Console, create a workspace `factory-shakedown` with a spend limit
    | `FACTORY_DEFAULT_BRANCH` | `main` |
    | `FACTORY_APP_CLIENT_ID` | the App's client ID |
    | `FACTORY_IMAGE` | set in step 5.1 |
-   | `JIRA_BASE_URL`, `JIRA_USER`, `JIRA_PROJECT` | `https://<site>.atlassian.net`, your Jira email, `FAC` |
-   | `SF_DEVHUB_USERNAME`, `SF_SPEC_USERNAME`, `SF_CI_USERNAME` | your Salesforce user name, all three |
-   | `SF_DEVHUB_CLIENT_ID`, `SF_SPEC_CLIENT_ID`, `SF_CI_CLIENT_ID` | the consumer key, all three |
+   | `JIRA_PROJECT` | your project key, such as `KAN` |
    | `SF_DEVHUB_URL`, `SF_SANDBOX_URL` | `https://login.salesforce.com`, both |
 
 8. **Ruleset** (Settings → Rules → Rulesets → New branch ruleset) for the default branch: require a pull request with
