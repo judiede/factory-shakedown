@@ -1,7 +1,7 @@
 # Factory image: every tool the agents and CI need, at pinned versions (poc-plan.md, Step 2).
 # Built and pushed to GHCR by .github/workflows/factory-image.yml, and rebuilt weekly for security fixes.
 # Versions were the newest releases at least two weeks old on 2026-10-24; Dependabot proposes updates.
-FROM node:24-trixie-slim
+FROM node:25-trixie-slim
 
 ARG SF_CLI_VERSION=2.155.1
 ARG CODE_ANALYZER_VERSION=5.16.0
