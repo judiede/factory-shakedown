@@ -71,7 +71,8 @@ def logout(alias: str) -> None:
 
 
 def create_scratch(alias: str, cwd: str | Path, policy: Policy, devhub: str = "devhub") -> None:
-    definition = Path(cwd) / policy.get("scratch_org.definition")
+    # Absolute, because the CLI runs inside cwd and would resolve a relative path from there a second time.
+    definition = (Path(cwd) / policy.get("scratch_org.definition")).resolve()
     if not definition.exists():
         raise FactoryError(f"Scratch org definition not found: {definition}")
     _sf("org", "create", "scratch", "--definition-file", str(definition), "--alias", alias,

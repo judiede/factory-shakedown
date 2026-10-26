@@ -408,6 +408,30 @@ class OrgSessionTests(unittest.TestCase):
                     os.environ[k] = v
 
 
+class ScratchOrgPathTests(unittest.TestCase):
+    def test_definition_path_works_from_inside_the_work_tree(self):
+        import os
+        from factory_kit import orgs
+        seen = {}
+
+        def fake_sf(*args, cwd=None, **kwargs):
+            seen["definition"], seen["cwd"] = args[args.index("--definition-file") + 1], cwd
+            return {"status": 0}
+
+        with tempfile.TemporaryDirectory() as tmp:
+            write(Path(tmp), "_kit/config/project-scratch-def.json", "{}")
+            here, real = os.getcwd(), orgs._sf
+            os.chdir(tmp)
+            orgs._sf = fake_sf
+            try:
+                orgs.create_scratch("smoke-org", "_kit", Policy())
+                # The CLI runs in cwd: the path it gets must find the file from there.
+                self.assertTrue((Path(tmp) / seen["cwd"] / seen["definition"]).exists())
+            finally:
+                orgs._sf = real
+                os.chdir(here)
+
+
 class CiTests(unittest.TestCase):
     def test_deploy_paths(self):
         changes = [("M", "force-app/main/default/lwc/grid/grid.js"), ("A", "force-app/main/default/lwc/grid/grid.html"),
