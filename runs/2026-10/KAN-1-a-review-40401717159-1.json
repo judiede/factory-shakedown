@@ -1,0 +1,31 @@
+{
+  "agent_duration_s": 21.4,
+  "agent_outcome": "success",
+  "cost_usd": 0.0956817,
+  "job_duration_s": 91.6,
+  "mode": "review",
+  "model": "claude-sonnet-5-5",
+  "num_turns": 5,
+  "outcome": "reviewed",
+  "pr": 5,
+  "prompt": "review.md",
+  "prompt_sha": "f354da2b2206",
+  "recorded_at": "2026-10-26T21:09:36+00:00",
+  "review_comments": {
+    "security": 1,
+    "standards": 1
+  },
+  "role": "review",
+  "run_attempt": "1",
+  "run_id": "40401717159",
+  "run_url": "https://github.com/judiede/factory-shakedown/actions/runs/40401717159/attempts/1",
+  "schema": 1,
+  "task": "a",
+  "ticket": "KAN-1",
+  "tokens": {
+    "cache_creation": 24858,
+    "cache_read": 60907,
+    "input": 8,
+    "output": 2743
+  }
+}
