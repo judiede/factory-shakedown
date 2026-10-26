@@ -1,0 +1,33 @@
+{
+  "agent_duration_s": 69.1,
+  "agent_outcome": "success",
+  "base": "main",
+  "cost_usd": 0.295557,
+  "grounding_errors": 0,
+  "job_duration_s": 149.9,
+  "lint_errors": 0,
+  "mode": "new",
+  "model": "claude-opus-5-5",
+  "num_turns": 18,
+  "outcome": "spec_ready",
+  "pr_url": "https://github.com/judiede/factory-shakedown/pull/4",
+  "prompt": "spec.md",
+  "prompt_sha": "7a1794ee95be",
+  "questions": false,
+  "recorded_at": "2026-10-26T20:34:21+00:00",
+  "redactions": {},
+  "role": "spec",
+  "run_attempt": "1",
+  "run_id": "40396417509",
+  "run_url": "https://github.com/judiede/factory-shakedown/actions/runs/40396417509/attempts/1",
+  "schema": 1,
+  "scope_violations": 0,
+  "task": null,
+  "ticket": "KAN-1",
+  "tokens": {
+    "cache_creation": 28857,
+    "cache_read": 123380,
+    "input": 14,
+    "output": 6327
+  }
+}
