@@ -1,5 +1,5 @@
 /**
- * Summary figures for the Account page: how many opportunities are open and what they are worth.
+ * Summary figures for the Account page card: how many opportunities are open and what they are worth.
  * Runs in user mode, so people only see opportunities they have access to.
  */
 public with sharing class AccountSummaryController {

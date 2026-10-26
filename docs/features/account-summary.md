@@ -34,3 +34,4 @@ their amounts.
 ## History
 
 - Initial version, written by hand as the shakedown baseline.
+- Baseline check: a comment tidied by hand, to prove the pipeline end to end before any agent runs.
