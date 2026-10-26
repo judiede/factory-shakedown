@@ -85,9 +85,14 @@ gh label create needs-spec-change --color 9C6500 --description "The spec can't b
      knowing it could then change the sandbox.
    - **CI validator**: API Enabled, Modify Metadata Through Metadata API Functions and Author Apex, for check-only
      deploys with tests.
-4. **External Client Apps** with JWT bearer flow, one in production (Dev Hub user) and one in the sandbox (both sandbox
-   users). Generate a key pair per app, upload the certificate, pre-authorize the users' profiles or permission sets,
-   and note each consumer key (client ID). Set a calendar reminder to rotate the keys.
+4. **Apps for the JWT logins.** Generate a key pair per app, upload its certificate, pre-authorize the users' profiles or
+   permission sets, note each consumer key (client ID), and set a calendar reminder to rotate the keys.
+   - **Production, Dev Hub user: a classic Connected App.** Scratch org creation fails through an External Client App
+     (`INVALID_INPUT: The callback URL provided is not valid`); Salesforce's DX guide also says to use a connected app for
+     Dev Hubs. New orgs block connected app creation: Setup → External Client App Settings → Allow creation of connected
+     apps (some orgs need Salesforce Support for this). Callback `http://localhost:1717/OauthRedirect`, Use digital
+     signatures, scopes api, web, refresh_token offline_access.
+   - **Sandbox, spec and CI users: an External Client App** with the JWT bearer flow.
 5. Edit [config/project-scratch-def.json](../../config/project-scratch-def.json) so scratch orgs match production's
    features and settings.
 

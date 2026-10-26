@@ -42,7 +42,14 @@ uses one; every build run, and every fix attempt, uses one. Plan on about two ti
      then add the profile **System Administrator**. Save.
    - On **Settings** → OAuth settings → **Consumer Key and Secret**: copy the consumer key. It's the client ID below.
    - Allow a few minutes before the first login.
-4. Optional check from your PC (PowerShell):
+4. **Connected App for the Dev Hub.** Creating scratch orgs fails through an External Client App
+   (`INVALID_INPUT: The callback URL provided is not valid`), so the Dev Hub logs in through a classic Connected App with
+   the same certificate. Setup → **External Client App Settings** → turn on **Allow creation of connected apps** →
+   **New Connected App**: name `Factory Dev Hub`, **Enable OAuth Settings**, callback `http://localhost:1717/OauthRedirect`,
+   **Use digital signatures** with `factory-jwt.crt`, the same three scopes. Save, then **Manage** → **Edit Policies**:
+   admin approved users are pre-authorized, relax IP restrictions; **Manage Profiles**: System Administrator. Its consumer
+   key goes into `SF_DEVHUB_CLIENT_ID`; the External Client App's key into `SF_SPEC_CLIENT_ID` and `SF_CI_CLIENT_ID`.
+5. Optional check from your PC (PowerShell):
 
    ```powershell
    sf org login jwt --username <your user name> --client-id <consumer key> `
@@ -136,6 +143,7 @@ In the Claude Console, create a workspace `factory-shakedown` with a spend limit
 | Symptom | Likely cause |
 | --- | --- |
 | Smoke test: Dev Hub `user hasn't approved this consumer` | The External Client App isn't active yet, or the System Administrator profile isn't pre-authorized |
+| Smoke test: Dev Hub `INVALID_INPUT: The callback URL provided is not valid` | The Dev Hub logs in through an External Client App; it needs the Connected App from section 1, step 4 |
 | `invalid_grant` / `audience is invalid` | Use `https://login.salesforce.com` as both Salesforce URLs |
 | Jira `401` | `JIRA_USER` must be the email of the account that created the token |
 | `docker pull` denied | The package doesn't grant the repository access (step 5.1) |
