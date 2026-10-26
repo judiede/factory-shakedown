@@ -66,6 +66,7 @@ jobs:
           client-id: ${{ vars.FACTORY_APP_CLIENT_ID }}
           private-key: ${{ secrets.FACTORY_APP_PRIVATE_KEY }}
           permission-pull-requests: write
+          permission-contents: write # the run log goes to the factory-results branch
 
       - name: Decide whether to review, and fetch the diff
         id: prep
