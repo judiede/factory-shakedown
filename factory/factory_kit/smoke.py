@@ -30,12 +30,12 @@ def model(policy: Policy) -> str:
 
 
 def devhub(workdir: Path, policy: Policy) -> str:
-    orgs.login("devhub", "devhub")
-    try:
-        orgs.create_scratch("smoke-org", workdir, policy)
-        orgs.delete_scratch("smoke-org")
-    finally:
-        orgs.logout("devhub")
+    with orgs.session("devhub", "devhub"):
+        try:
+            orgs.create_scratch("smoke-org", workdir, policy)
+        finally:
+            orgs.delete_scratch("smoke-org")  # also cleans up an org created before a later error
+            orgs.logout("devhub")
     return "Dev Hub: logged in, created and deleted a scratch org."
 
 

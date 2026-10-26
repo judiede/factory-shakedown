@@ -152,24 +152,24 @@ def scratch(workdir: Path, policy: Policy) -> int:
     """Replay pull requests: deploy everything to a fresh scratch org built from the merge commit, run local tests."""
     from . import orgs
     alias, ok, report = "ci-org", False, ""
-    orgs.login("devhub", "devhub")
-    try:
-        orgs.create_scratch(alias, workdir, policy)
-        deployed, note = orgs.deploy(alias, workdir)
-        report = note
-        if deployed:
-            proc = run(["sf", "apex", "run", "test", "--target-org", alias, "--test-level",
-                        str(policy.get("ci.test_level")), "--code-coverage", "--result-format", "json",
-                        "--output-dir", ".factory-out/test-results", "--wait", "60"],
-                       cwd=workdir, check=False, timeout=4200)
-            try:
-                ok, tests = _test_summary(json.loads(proc.stdout or "{}"))
-            except json.JSONDecodeError:
-                ok, tests = False, proc.stdout[-3000:] or proc.stderr[-3000:]
-            report += "\n\n" + tests
-    finally:
-        orgs.delete_scratch(alias)
-        orgs.logout("devhub")
+    with orgs.session("devhub", "devhub"):
+        try:
+            orgs.create_scratch(alias, workdir, policy)
+            deployed, note = orgs.deploy(alias, workdir)
+            report = note
+            if deployed:
+                proc = run(["sf", "apex", "run", "test", "--target-org", alias, "--test-level",
+                            str(policy.get("ci.test_level")), "--code-coverage", "--result-format", "json",
+                            "--output-dir", ".factory-out/test-results", "--wait", "60"],
+                           cwd=workdir, check=False, timeout=4200)
+                try:
+                    ok, tests = _test_summary(json.loads(proc.stdout or "{}"))
+                except json.JSONDecodeError:
+                    ok, tests = False, proc.stdout[-3000:] or proc.stderr[-3000:]
+                report += "\n\n" + tests
+        finally:
+            orgs.delete_scratch(alias)
+            orgs.logout("devhub")
     step_summary("## Scratch org validation\n\n" + report)
     print(report)
     return 0 if ok else 1

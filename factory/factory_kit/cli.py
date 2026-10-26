@@ -28,13 +28,14 @@ def _org_up(purpose: str, workdir: Path, policy) -> int:
         return 0
     try:
         if scratch:
-            orgs.login("devhub", "devhub")
-            try:
-                orgs.create_scratch(alias, workdir, policy)
-                state["created"] = True
-                ok, note = orgs.deploy(alias, workdir)
-            finally:
-                orgs.logout("devhub")
+            # The Dev Hub key must stay available while the CLI logs in to the new scratch org and deploys.
+            with orgs.session("devhub", "devhub"):
+                try:
+                    orgs.create_scratch(alias, workdir, policy)
+                    state["created"] = True
+                    ok, note = orgs.deploy(alias, workdir)
+                finally:
+                    orgs.logout("devhub")
             state.update(ready=True, note=note, deployed=ok)
             if not ok and (purpose == "spec" or ctx.get("mode") == "build"):
                 # The base itself doesn't deploy: a pipeline problem, not the agent's (poc-plan.md pitfalls).
@@ -62,11 +63,11 @@ def _org_down() -> int:
     if not state.get("alias"):
         return 0
     if state.get("scratch"):
-        try:
-            orgs.login("devhub", "devhub")
-            orgs.delete_scratch(state["alias"])
-        finally:
-            orgs.logout("devhub")
+        with orgs.session("devhub", "devhub"):
+            try:
+                orgs.delete_scratch(state["alias"])
+            finally:
+                orgs.logout("devhub")
     else:
         orgs.logout(state["alias"])
     return 0

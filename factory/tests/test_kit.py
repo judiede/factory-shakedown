@@ -372,6 +372,42 @@ class AgentSettingsTests(unittest.TestCase):
             agent.render(text, {n: "x" for n in names})
 
 
+class OrgSessionTests(unittest.TestCase):
+    def test_key_file_lives_for_the_block(self):
+        import os
+        from factory_kit import orgs
+        calls = []
+
+        def fake_sf(*args, **kwargs):
+            calls.append(args)
+            key = args[args.index("--jwt-key-file") + 1]
+            self.assertTrue(Path(key).exists())
+            return {"status": 0}
+
+        env = {"SF_DEVHUB_USERNAME": "u@example.com", "SF_DEVHUB_CLIENT_ID": "id",
+               "SF_DEVHUB_JWT_KEY": "-----BEGIN PRIVATE KEY-----\nabc\n-----END PRIVATE KEY-----"}
+        saved, real = {k: os.environ.get(k) for k in env}, orgs._sf
+        os.environ.update(env)
+        orgs._sf = fake_sf
+        try:
+            with orgs.session("devhub", "devhub"):
+                key = calls[0][calls[0].index("--jwt-key-file") + 1]
+                self.assertTrue(Path(key).exists(), "the CLI reads the key again inside the block")
+            self.assertFalse(Path(key).exists(), "the key is deleted when the block ends")
+            with self.assertRaises(RuntimeError):
+                with orgs.session("devhub", "devhub"):
+                    key = calls[-1][calls[-1].index("--jwt-key-file") + 1]
+                    raise RuntimeError("scratch org failed")
+            self.assertFalse(Path(key).exists(), "the key is deleted after an error too")
+        finally:
+            orgs._sf = real
+            for k, v in saved.items():
+                if v is None:
+                    os.environ.pop(k, None)
+                else:
+                    os.environ[k] = v
+
+
 class CiTests(unittest.TestCase):
     def test_deploy_paths(self):
         changes = [("M", "force-app/main/default/lwc/grid/grid.js"), ("A", "force-app/main/default/lwc/grid/grid.html"),

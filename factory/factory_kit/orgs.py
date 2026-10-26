@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import os
 import tempfile
+from contextlib import contextmanager
 from pathlib import Path
 
 from .policy import Policy
@@ -33,7 +34,14 @@ def _sf(*args: str, cwd: str | Path | None = None, timeout: int = 3600, check: b
     return data
 
 
-def login(who: str, alias: str) -> None:
+@contextmanager
+def session(who: str, alias: str):
+    """Log in with JWT and keep the key file until the block ends.
+
+    The CLI records the key file's path and reads it again later: to log in to a scratch org it has just created
+    through this Dev Hub, and to renew an expired session. So every use of the login goes inside the block. The file
+    lives in the step's own container and is deleted when the block ends.
+    """
     if who not in IDENTITIES:
         raise FactoryError(f"Unknown identity {who!r}")
     user_var, client_var, url_var, default_url, key_var = IDENTITIES[who]
@@ -47,8 +55,15 @@ def login(who: str, alias: str) -> None:
                 "--client-id", env(client_var, required=True), "--jwt-key-file", key_file,
                 "--instance-url", env(url_var) or default_url, "--alias", alias]
         _sf(*args, timeout=300)
+        yield alias
     finally:
         os.remove(key_file)
+
+
+def login(who: str, alias: str) -> None:
+    """Log in for a step that only uses this org directly (no scratch org creation through it)."""
+    with session(who, alias):
+        pass
 
 
 def logout(alias: str) -> None:
