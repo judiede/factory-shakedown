@@ -5,6 +5,11 @@
         <enabled>true</enabled>
     </classAccesses>
     <description>Lets sales users see the account summary on the Account page.</description>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>Account.Customer_Tier__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
     <hasActivationRequired>false</hasActivationRequired>
     <label>Account Summary User</label>
 </PermissionSet>
