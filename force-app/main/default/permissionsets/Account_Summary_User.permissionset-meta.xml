@@ -4,7 +4,7 @@
         <apexClass>AccountSummaryController</apexClass>
         <enabled>true</enabled>
     </classAccesses>
-    <description>Lets sales users see the account summary on the Account page.</description>
+    <description>Lets sales users see the account summary on the Account page and read and edit the Customer Tier field on Account.</description>
     <fieldPermissions>
         <editable>true</editable>
         <field>Account.Customer_Tier__c</field>

@@ -47,3 +47,4 @@ text that explain each tier. It is not on any page layout or report; admins can 
 - Initial version, written by hand as the shakedown baseline.
 - Baseline check: a comment tidied by hand, to prove the pipeline end to end before any agent runs.
 - KAN-1: added the Customer Tier picklist on Account and field access in the permission set.
+- KAN-1 review: the permission set description now mentions the Customer Tier field access.
