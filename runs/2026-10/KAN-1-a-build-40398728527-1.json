@@ -1,0 +1,33 @@
+{
+  "agent_duration_s": 25.3,
+  "agent_outcome": "success",
+  "attempt": 0,
+  "base": "main",
+  "changed_files": 3,
+  "cost_usd": 0.1028499,
+  "job_duration_s": 133.5,
+  "mode": "build",
+  "model": "claude-sonnet-5-5",
+  "num_turns": 11,
+  "outcome": "changes",
+  "pr_url": "https://github.com/judiede/factory-shakedown/pull/5",
+  "prompt": "build.md",
+  "prompt_sha": "001393600a14",
+  "recorded_at": "2026-10-26T20:49:49+00:00",
+  "role": "build",
+  "run_attempt": "1",
+  "run_id": "40398728527",
+  "run_url": "https://github.com/judiede/factory-shakedown/actions/runs/40398728527/attempts/1",
+  "schema": 1,
+  "scope_violations": 0,
+  "screenshots": 0,
+  "task": "a",
+  "ticket": "KAN-1",
+  "tokens": {
+    "cache_creation": 25387,
+    "cache_read": 78724,
+    "input": 10,
+    "output": 3149
+  },
+  "work_type": "small"
+}
