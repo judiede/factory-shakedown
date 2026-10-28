@@ -42,6 +42,10 @@ jobs:
       FACTORY_IMAGE: ${{ vars.FACTORY_IMAGE }}
       FACTORY_DEFAULT_BRANCH: ${{ vars.FACTORY_DEFAULT_BRANCH || 'main' }}
       FX: bash _kit/factory/bin/in-image
+      # The control panel's kill switch (factory_kit/switch.py); unused until factory-policy.yml names a landscape.
+      SF_FACTORY_USERNAME: ${{ secrets.SF_FACTORY_USERNAME || vars.SF_FACTORY_USERNAME }}
+      SF_FACTORY_CLIENT_ID: ${{ secrets.SF_FACTORY_CLIENT_ID || vars.SF_FACTORY_CLIENT_ID }}
+      SF_FACTORY_URL: ${{ vars.SF_FACTORY_URL }}
       KEY: ${{ inputs.key }}
       MODE: ${{ inputs.mode }}
       PR: ${{ inputs.pr }}
@@ -87,7 +91,8 @@ jobs:
         id: prep
         env:
           GH_TOKEN: ${{ github.token }}
-        run: $FX -e GH_TOKEN -- factory spec prepare --key "$KEY" --mode "$MODE" --pr "$PR"
+          SF_FACTORY_JWT_KEY: ${{ secrets.SF_FACTORY_JWT_KEY }}
+        run: $FX -e GH_TOKEN -e SF_FACTORY_JWT_KEY -- factory spec prepare --key "$KEY" --mode "$MODE" --pr "$PR"
 
       # Only the one ref the agent works from, without history, so no later commit can give the answer away.
       - name: Check out the work tree

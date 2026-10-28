@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from . import agent, github
+from . import agent, github, switch
 from .policy import Policy
 from .publish import agent_inputs_dir, cost_line, load_state, logs_dir, save_state
 from .results import push_record, record
@@ -16,6 +16,9 @@ MAX_COMMENTS = 15
 
 
 def prepare(pr_number: str, policy: Policy) -> dict:
+    held = switch.paused(policy)
+    if held:
+        return switch.stop_run(held)
     pr = github.pr(int(pr_number))
     m = BUILD_BRANCH_RE.match(pr["headRefName"])
     labels = {label["name"] for label in pr.get("labels", [])}

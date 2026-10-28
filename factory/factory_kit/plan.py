@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from . import github, trailers
+from . import github, switch, trailers
 from .spec import Spec, Task
 from .util import BUILD_BRANCH_RE, SPEC_BRANCH_RE
 
@@ -85,6 +85,7 @@ def run_next(key: str, policy, jira=None, dispatch: bool = True) -> list[str]:
     cap = float(policy.get("budgets.ticket_cost_usd", 0) or 0)
     todo = ready(spec, states)
     started: list[str] = []
+    held = switch.paused(policy) if todo and dispatch else None
     if all_merged(spec, states):
         jira.comment(key, f"All {len(spec.tasks)} task(s) are merged. Gate 2 is done for this ticket "
                           f"(factory spend ${spent:.2f}).")
@@ -93,6 +94,10 @@ def run_next(key: str, policy, jira=None, dispatch: bool = True) -> list[str]:
         jira.comment(key, f"The ticket's cost cap is reached (${spent:.2f} of ${cap:.2f}); the factory won't "
                           f"start tasks {', '.join(t.id for t in todo)}.")
         jira.labels(key, add=[labels["needs_human_label"]])
+    elif held:
+        # Plan runs when something merges, so after the resume someone re-runs it to start these tasks.
+        jira.comment(key, f"The factory didn't start tasks {', '.join(t.id for t in todo)}: {held}. "
+                          "Run the plan workflow again once it is resumed.")
     else:
         for t in todo:
             if dispatch:
@@ -107,7 +112,8 @@ def run_next(key: str, policy, jira=None, dispatch: bool = True) -> list[str]:
         jira.comment(key, "These tasks can't start because a task they depend on was rejected: "
                           + ", ".join(t.id for t in stuck))
     step_summary(f"## Plan for {key}\n\nBase `{base}` · spent ${spent:.2f}\n\n{table(spec, states)}\n\n"
-                 + (f"Started: {', '.join(started)}" if started else "No task started."))
+                 + (f"Started: {', '.join(started)}" if started else "No task started.")
+                 + (f" Paused: {held}." if held else ""))
     return started
 
 

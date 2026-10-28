@@ -45,6 +45,8 @@ DEFAULTS: dict = {
     "redaction": {"mode": "redact"},
     "scratch_org": {"definition": "config/project-scratch-def.json", "duration_days": 1, "wait_minutes": 30},
     "web_domains": ["developer.salesforce.com", "help.salesforce.com", "architect.salesforce.com"],
+    # The Slack control panel's kill switch: off until a landscape code is set (switch.py).
+    "control_panel": {"landscape": None},
     "results_branch": "factory-results",
 }
 
