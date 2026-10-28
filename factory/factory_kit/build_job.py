@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from . import agent, github, scope, switch, trailers
+from . import agent, github, progress, scope, switch, trailers
 from . import spec as specmod
 from .jira import Jira
 from .policy import Policy
@@ -68,7 +68,21 @@ def prepare(key: str, task_id: str, mode: str, pr_number: str | None, policy: Po
     save_state("context", ctx)
     gh_output(base=base, branch=ctx["branch"], checkout_ref=ctx["checkout_ref"], stop=str(ctx["stop"]).lower(),
               reason=ctx["reason"], work_type=task.work_type)
+    _report_start(ctx, policy)
     return ctx
+
+
+def _report_start(ctx: dict, policy: Policy) -> None:
+    task = f"Task {ctx['task']} ({ctx['title']})"
+    pr_url = f"https://github.com/{github.repo()}/pull/{ctx['pr']}" if ctx["pr"] else None
+    if ctx["stop"]:
+        if ctx["pr"]:  # a duplicate build dispatch just ends quietly
+            progress.report(policy, ctx["key"], "BUILD", "BLOCKED", f"{task} stopped: {ctx['reason']}.", prUrl=pr_url)
+        return
+    notes = {"build": f"{task}: the build agent is building it.",
+             "fix": f"{task}: CI failed; the build agent is fixing it (attempt {ctx['attempt']}).",
+             "revise": f"{task}: the build agent is working in the review comments (round {ctx['attempt']})."}
+    progress.report(policy, ctx["key"], "BUILD", note=notes[ctx["mode"]], prUrl=pr_url)
 
 
 def run(workdir: Path, policy: Policy) -> dict:
@@ -176,6 +190,7 @@ def notify(policy: Policy, jira: Jira | None = None) -> None:
     jira = jira or Jira.from_env()
     outcome, link = result["outcome"], pub.get("pr_url") or run_url()
     task = f"task {ctx['task']} ({ctx['title']})"
+    pr_url = pub.get("pr_url")
     if outcome == "changes" and ctx["mode"] == "build":
         jira.comment(ctx["key"], f"The factory opened a pull request for {task}: {link}")
     elif outcome == "needs_spec_change":
@@ -184,6 +199,15 @@ def notify(policy: Policy, jira: Jira | None = None) -> None:
     elif outcome in {"scope_violation", "no_changes", "overrun", "agent_failed"}:
         jira.comment(ctx["key"], f"The factory needs a person for {task} ({outcome}): {link}")
         jira.labels(ctx["key"], add=[policy.get("intake.needs_human_label")])
+    # The control panel hears about every outcome, also the fixes and revisions Jira isn't told about.
+    if outcome == "changes":
+        opened = "pull request opened" if ctx["mode"] == "build" else "changes pushed"
+        progress.report(policy, ctx["key"], "CI", note=f"{task[0].upper()}{task[1:]}: {opened}; CI is checking it.",
+                        prUrl=pr_url)
+    else:
+        why = ("the spec can't be built as written, so a spec amendment needs Gate 1 again"
+               if outcome == "needs_spec_change" else f"a person needs to look ({outcome})")
+        progress.report(policy, ctx["key"], "BUILD", "BLOCKED", f"{task[0].upper()}{task[1:]}: {why}.", prUrl=pr_url)
 
 
 def stopped(policy: Policy, jira: Jira | None = None) -> None:

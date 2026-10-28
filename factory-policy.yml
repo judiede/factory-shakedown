@@ -83,9 +83,12 @@ web_domains:
 
 results_branch: factory-results
 
-# The Slack control panel's kill switch. Set landscape to this repository's landscape code to make the factory ask the
-# factory org (GET /factory/v1/switch) before it starts work: intake, the next build task, and every spec, build and
-# review run. It needs the SF_FACTORY_* login (factory-setup.md). The check fails closed: if the factory org can't be
-# asked, no new work starts. Off while landscape is empty; FACTORY_ENABLED stays the hard off either way.
+# The Slack control panel. Set landscape to this repository's landscape code to connect the factory to the factory org
+# (SF_FACTORY_* login, factory-setup.md):
+# - kill switch: before it starts work (intake, the next build task, every spec, build and review run) the factory
+#   asks whether it is paused. The check fails closed: if the factory org can't be asked, no new work starts.
+# - stage reports: at each stop it reports where the ticket is, which the Slack card shows. Best effort: a failed
+#   report is only a warning.
+# Off while landscape is empty; FACTORY_ENABLED stays the hard off either way.
 control_panel:
   landscape: SHAKEDOWN                   # shakedown: the landscape record in the factory org

@@ -153,7 +153,8 @@ jobs:
         if: steps.publish.outcome == 'success' && steps.prep.outputs.mode != 'discuss'
         env:
           JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
-        run: $FX -e JIRA_API_TOKEN -- factory spec notify
+          SF_FACTORY_JWT_KEY: ${{ secrets.SF_FACTORY_JWT_KEY }}
+        run: $FX -e JIRA_API_TOKEN -e SF_FACTORY_JWT_KEY -- factory spec notify
 
       - name: Delete the scratch org
         if: always() && steps.org.outcome != 'skipped'

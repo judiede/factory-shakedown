@@ -9,15 +9,11 @@ the factory org can't be asked, no new work starts. The repository variable FACT
 
 from __future__ import annotations
 
-import json
 import urllib.parse
-import urllib.request
 
-from . import orgs
+from . import controlpanel
 from .policy import Policy
 from .util import gh_output, step_summary
-
-ALIAS = "factory"
 
 # One answer per landscape and process: a job asks once, however many times it checks.
 _answers: dict[str, str | None] = {}
@@ -25,7 +21,7 @@ _answers: dict[str, str | None] = {}
 
 def paused(policy: Policy) -> str | None:
     """Why the factory must not start work now, or None when it may."""
-    landscape = policy.get("control_panel.landscape")
+    landscape = controlpanel.landscape(policy)
     if not landscape:
         return None
     if landscape not in _answers:
@@ -57,10 +53,4 @@ def _reason(landscape: str) -> str | None:
 
 def _ask(landscape: str) -> dict:
     """The factory org's answer for one landscape. Tests replace this."""
-    with orgs.session("factory", ALIAS):
-        instance_url, token = orgs.access(ALIAS)
-    query = urllib.parse.urlencode({"landscape": landscape})
-    request = urllib.request.Request(f"{instance_url}/services/apexrest/factory/v1/switch?{query}",
-                                     headers={"Authorization": f"Bearer {token}", "Accept": "application/json"})
-    with urllib.request.urlopen(request, timeout=60) as response:
-        return json.loads(response.read().decode("utf-8"))
+    return controlpanel.call("GET", "/switch?" + urllib.parse.urlencode({"landscape": landscape}))

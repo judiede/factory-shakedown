@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from . import github, switch
+from . import github, progress, switch
 from .jira import Jira
 from .policy import Policy
 from .util import KEY_RE, env, step_summary
@@ -30,6 +30,8 @@ def poll(policy: Policy, jira: Jira | None = None, dispatch: bool = True) -> lis
             github.dispatch("factory-spec.yml", env("FACTORY_DEFAULT_BRANCH", "main"), key=key, mode="auto")
             jira.labels(key, add=[labels["active_label"]],
                         remove=[labels["ready_label"], labels["clarification_label"], labels["needs_human_label"]])
+            progress.report(policy, key, "INTAKE", note="Picked up from Jira; the spec agent starts.",
+                            title=(issue.get("fields") or {}).get("summary"))
         started.append(key)
         lines.append(f"- {key}: spec run started")
     step_summary("## Factory intake\n\n" + ("\n".join(lines) or "No tickets are labeled factory-ready."))

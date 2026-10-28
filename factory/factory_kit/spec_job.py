@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from . import agent, discuss, github, grounding, scope, switch, trailers
+from . import agent, discuss, github, grounding, progress, scope, switch, trailers
 from . import spec as specmod
 from .jira import Jira
 from .policy import Policy
@@ -63,6 +63,10 @@ def prepare(key: str, requested_mode: str, pr_number: str | None, policy: Policy
     if ctx["stop"] and ctx["pr"] and mode != "discuss":
         github.edit_pr(ctx["pr"], add_labels=["needs-human"])
         github.comment(ctx["pr"], f"The factory stopped: {ctx['reason']}. A person needs to take this spec over.")
+        progress.report(policy, key, "SPEC", "BLOCKED", f"The factory stopped: {ctx['reason']}.")
+    elif not ctx["stop"] and mode != "discuss":  # sparring stays in the pull request
+        progress.report(policy, key, "SPEC", note="The spec agent is writing the spec." if mode == "new"
+                        else f"The spec agent is revising the spec (round {ctx['round']}).")
     return ctx
 
 
@@ -226,14 +230,22 @@ def notify(policy: Policy, jira: Jira | None = None) -> None:
     key, outcome = ctx["key"], result["outcome"]
     labels = policy.get("intake")
     link = pub.get("pr_url") or run_url()
+    spec_pr = pub.get("pr_url")
     if outcome == "questions":
         jira.comment(key, f"The factory's spec agent needs answers before the spec can be approved. "
                           f"Reply in a comment, then add the label {labels['ready_label']} again.\n\n"
                           f"{result['questions']}\n\nDraft spec: {link}")
         jira.labels(key, add=[labels["clarification_label"]])
+        progress.report(policy, key, "SPEC", "WAITING_HUMAN", "The spec agent asked questions on the Jira ticket.",
+                        specPrUrl=spec_pr)
     elif outcome == "spec_ready":
         jira.comment(key, f"Spec ready for Gate 1 review: {link}")
         jira.labels(key, remove=[labels["clarification_label"]])
+        progress.report(policy, key, "GATE1", "WAITING_HUMAN",
+                        "The spec is ready for Gate 1: a person reviews and merges the spec pull request.",
+                        specPrUrl=spec_pr)
     else:
         jira.comment(key, f"The factory couldn't produce a spec ({outcome}). A person needs to look: {link}")
         jira.labels(key, add=[labels["needs_human_label"]])
+        progress.report(policy, key, "SPEC", "BLOCKED", f"The factory couldn't produce a spec ({outcome}).",
+                        specPrUrl=spec_pr)

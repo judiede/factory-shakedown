@@ -104,7 +104,8 @@ jobs:
         if: steps.agent.outcome == 'success'
         env:
           GH_TOKEN: ${{ steps.app.outputs.token }}
-        run: $FX -e GH_TOKEN -- factory review publish
+          SF_FACTORY_JWT_KEY: ${{ secrets.SF_FACTORY_JWT_KEY }}
+        run: $FX -e GH_TOKEN -e SF_FACTORY_JWT_KEY -- factory review publish
 
       - name: Keep the transcript and the review
         if: always() && steps.agent.outcome != 'skipped'

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from . import github, switch, trailers
+from . import github, progress, switch, trailers
 from .spec import Spec, Task
 from .util import BUILD_BRANCH_RE, SPEC_BRANCH_RE
 
@@ -90,10 +90,13 @@ def run_next(key: str, policy, jira=None, dispatch: bool = True) -> list[str]:
         jira.comment(key, f"All {len(spec.tasks)} task(s) are merged. Gate 2 is done for this ticket "
                           f"(factory spend ${spent:.2f}).")
         jira.labels(key, add=[labels["merged_label"]], remove=[labels["active_label"]])
+        progress.report(policy, key, "UAT", "WAITING_HUMAN", progress.AFTER_GATE2)
     elif cap and spent >= cap and todo:
         jira.comment(key, f"The ticket's cost cap is reached (${spent:.2f} of ${cap:.2f}); the factory won't "
                           f"start tasks {', '.join(t.id for t in todo)}.")
         jira.labels(key, add=[labels["needs_human_label"]])
+        progress.report(policy, key, "BUILD", "BLOCKED",
+                        f"The ticket's cost cap is reached (${spent:.2f} of ${cap:.2f}); a person decides.")
     elif held:
         # Plan runs when something merges, so after the resume someone re-runs it to start these tasks.
         jira.comment(key, f"The factory didn't start tasks {', '.join(t.id for t in todo)}: {held}. "
@@ -107,6 +110,10 @@ def run_next(key: str, policy, jira=None, dispatch: bool = True) -> list[str]:
         if not states and started:
             jira.comment(key, f"Spec approved at Gate 1. The factory planned {len(spec.tasks)} task(s):\n"
                               + "\n".join(f"- {t.id}: {t.title}" for t in spec.tasks))
+        if started and dispatch:
+            first = "Gate 1 passed. " if not states else ""
+            progress.report(policy, key, "BUILD", note=f"{first}Started task(s) {', '.join(started)} "
+                                                       f"of {len(spec.tasks)}.")
     stuck = blocked(spec, states)
     if stuck:
         jira.comment(key, "These tasks can't start because a task they depend on was rejected: "

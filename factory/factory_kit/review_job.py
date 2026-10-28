@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from . import agent, github, switch
+from . import agent, github, progress, switch
 from .policy import Policy
 from .publish import agent_inputs_dir, cost_line, load_state, logs_dir, save_state
 from .results import push_record, record
@@ -99,3 +99,8 @@ def publish(policy: Policy) -> None:
     rec = record("review", "review", ctx["key"], ctx["task"], result["agent"], result["outcome"],
                  pr=ctx["pr"], review_comments=counts)
     push_record(rec, policy.get("results_branch"))
+    if review:
+        found = sum(counts.values())
+        progress.report(policy, ctx["key"], "GATE2", "WAITING_HUMAN",
+                        f"Task {ctx['task']}: the reviewer agent left {found} comment(s); the code owner decides at "
+                        "Gate 2.", prUrl=f"https://github.com/{github.repo()}/pull/{ctx['pr']}")

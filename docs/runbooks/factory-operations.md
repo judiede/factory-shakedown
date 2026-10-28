@@ -66,6 +66,10 @@ keep their ready label), plan starts no tasks (it says so on the ticket; run the
 and spec, build and review runs stop before they start, without asking for a person. If the factory org can't be
 asked, the factory treats itself as paused.
 
+The connected factory also reports each ticket's stage to the factory org (intake, spec, Gate 1, build, CI, Gate 2,
+and UAT once everything is merged), which the Slack card follows. A report that fails is only a warning in the run
+log; it never stops the factory.
+
 ## Budgets
 
 `factory-policy.yml` holds them, per task work type (small, medium, large) and for specs and reviews. Agent commits
