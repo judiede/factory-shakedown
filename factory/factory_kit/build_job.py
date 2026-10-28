@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from . import agent, github, scope, trailers
+from . import agent, github, scope, switch, trailers
 from . import spec as specmod
 from .jira import Jira
 from .policy import Policy
@@ -23,6 +23,9 @@ def prepare(key: str, task_id: str, mode: str, pr_number: str | None, policy: Po
     require_task(task_id)
     if mode not in {"build", "fix", "revise"}:
         raise FactoryError(f"Unknown build mode {mode!r}")
+    held = switch.paused(policy)
+    if held:
+        return switch.stop_run(held)
     base = github.base_for(key)
     text = github.file_content(f"docs/specs/{key}.md", base)
     if text is None:

@@ -121,6 +121,7 @@ can reach these secrets.
 | `FACTORY_APP_PRIVATE_KEY` | the App's private key |
 | `SF_DEVHUB_JWT_KEY` | private key for the Dev Hub user's External Client App |
 | `SF_SPEC_JWT_KEY` | private key for the spec agent user in the sandbox |
+| `SF_FACTORY_JWT_KEY` | optional, for the control panel's kill switch: private key for the factory org's External Client App |
 
 **Environment `integration`**, no branch restriction (pull request CI uses it):
 
@@ -144,6 +145,12 @@ can reach these secrets.
 | `SF_SPEC_USERNAME`, `SF_SPEC_CLIENT_ID` | the spec agent user and the sandbox app's consumer key |
 | `SF_CI_USERNAME`, `SF_CI_CLIENT_ID` | the CI validator and the sandbox app's consumer key |
 | `SF_SANDBOX_URL` | `https://test.salesforce.com` or the sandbox's My Domain URL |
+| `SF_FACTORY_USERNAME`, `SF_FACTORY_CLIENT_ID`, `SF_FACTORY_URL` | optional, for the control panel's kill switch: the factory org user, its app's consumer key, `https://login.salesforce.com` (the default) |
+
+To connect the Slack control panel's kill switch, set `control_panel.landscape` in `factory-policy.yml` to this
+repository's landscape code and add the three `SF_FACTORY_*` values and `SF_FACTORY_JWT_KEY`. The user needs the
+`Factory_Integration` permission set in the factory org. In a public repository, store the username and client ID as
+secrets, like the other personal values.
 
 ## 9. The image
 

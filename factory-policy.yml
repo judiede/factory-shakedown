@@ -82,3 +82,10 @@ web_domains:
   - architect.salesforce.com
 
 results_branch: factory-results
+
+# The Slack control panel's kill switch. Set landscape to this repository's landscape code to make the factory ask the
+# factory org (GET /factory/v1/switch) before it starts work: intake, the next build task, and every spec, build and
+# review run. It needs the SF_FACTORY_* login (factory-setup.md). The check fails closed: if the factory org can't be
+# asked, no new work starts. Off while landscape is empty; FACTORY_ENABLED stays the hard off either way.
+control_panel:
+  landscape: SHAKEDOWN                   # shakedown: the landscape record in the factory org

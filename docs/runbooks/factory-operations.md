@@ -60,6 +60,12 @@ Rejecting a pull request: close it with a comment starting with the reason categ
 Set the repository variable `FACTORY_ENABLED` to `false`. Intake, the router and every agent workflow check it
 before starting; runs in progress finish their current step. CI keeps validating pull requests.
 
+With the Slack control panel connected (`control_panel.landscape` in `factory-policy.yml`), pausing the landscape, or
+the whole factory, in the control panel has the same effect without touching GitHub. Intake starts no tickets (they
+keep their ready label), plan starts no tasks (it says so on the ticket; run the plan workflow again after resuming),
+and spec, build and review runs stop before they start, without asking for a person. If the factory org can't be
+asked, the factory treats itself as paused.
+
 ## Budgets
 
 `factory-policy.yml` holds them, per task work type (small, medium, large) and for specs and reviews. Agent commits

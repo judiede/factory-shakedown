@@ -2,13 +2,18 @@
 
 from __future__ import annotations
 
-from . import github
+from . import github, switch
 from .jira import Jira
 from .policy import Policy
 from .util import KEY_RE, env, step_summary
 
 
 def poll(policy: Policy, jira: Jira | None = None, dispatch: bool = True) -> list[str]:
+    held = switch.paused(policy)
+    if held:
+        # The tickets keep their ready label, so the first poll after the resume picks them up.
+        step_summary(f"## Factory intake\n\nNo tickets started: {held}.")
+        return []
     jira = jira or Jira.from_env()
     labels = policy.get("intake")
     project = env("JIRA_PROJECT", required=True)

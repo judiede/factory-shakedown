@@ -31,6 +31,10 @@ jobs:
       FACTORY_IMAGE: ${{ vars.FACTORY_IMAGE }}
       FACTORY_DEFAULT_BRANCH: ${{ vars.FACTORY_DEFAULT_BRANCH || 'main' }}
       FX: bash _kit/factory/bin/in-image
+      # The control panel's kill switch (factory_kit/switch.py); unused until factory-policy.yml names a landscape.
+      SF_FACTORY_USERNAME: ${{ secrets.SF_FACTORY_USERNAME || vars.SF_FACTORY_USERNAME }}
+      SF_FACTORY_CLIENT_ID: ${{ secrets.SF_FACTORY_CLIENT_ID || vars.SF_FACTORY_CLIENT_ID }}
+      SF_FACTORY_URL: ${{ vars.SF_FACTORY_URL }}
       KEY: ${{ inputs.key }}
       JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL || vars.JIRA_BASE_URL }}
       JIRA_USER: ${{ secrets.JIRA_USER || vars.JIRA_USER }}
@@ -65,4 +69,5 @@ jobs:
         env:
           JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
           GH_TOKEN: ${{ github.token }}
-        run: $FX -e JIRA_API_TOKEN -e GH_TOKEN -- factory plan --key "$KEY"
+          SF_FACTORY_JWT_KEY: ${{ secrets.SF_FACTORY_JWT_KEY }}
+        run: $FX -e JIRA_API_TOKEN -e GH_TOKEN -e SF_FACTORY_JWT_KEY -- factory plan --key "$KEY"

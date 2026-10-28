@@ -29,6 +29,10 @@ jobs:
     env:
       FACTORY_IMAGE: ${{ vars.FACTORY_IMAGE }}
       FX: bash _kit/factory/bin/in-image
+      # The control panel's kill switch (factory_kit/switch.py); unused until factory-policy.yml names a landscape.
+      SF_FACTORY_USERNAME: ${{ secrets.SF_FACTORY_USERNAME || vars.SF_FACTORY_USERNAME }}
+      SF_FACTORY_CLIENT_ID: ${{ secrets.SF_FACTORY_CLIENT_ID || vars.SF_FACTORY_CLIENT_ID }}
+      SF_FACTORY_URL: ${{ vars.SF_FACTORY_URL }}
       PR: ${{ inputs.pr }}
     steps:
       - name: Harden the runner
@@ -73,7 +77,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           FACTORY_APP_SLUG: ${{ steps.app.outputs.app-slug }}
-        run: $FX -e GH_TOKEN -- factory review prepare --pr "$PR"
+          SF_FACTORY_JWT_KEY: ${{ secrets.SF_FACTORY_JWT_KEY }}
+        run: $FX -e GH_TOKEN -e SF_FACTORY_JWT_KEY -- factory review prepare --pr "$PR"
 
       - name: Check out the pull request
         if: steps.prep.outputs.stop != 'true'

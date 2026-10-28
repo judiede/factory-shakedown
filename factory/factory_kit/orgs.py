@@ -20,6 +20,9 @@ IDENTITIES = {
     "devhub": ("SF_DEVHUB_USERNAME", "SF_DEVHUB_CLIENT_ID", "SF_DEVHUB_URL", "https://login.salesforce.com", "SF_DEVHUB_JWT_KEY"),
     "spec": ("SF_SPEC_USERNAME", "SF_SPEC_CLIENT_ID", "SF_SANDBOX_URL", "https://test.salesforce.com", "SF_SPEC_JWT_KEY"),
     "ci": ("SF_CI_USERNAME", "SF_CI_CLIENT_ID", "SF_SANDBOX_URL", "https://test.salesforce.com", "SF_CI_JWT_KEY"),
+    # The control panel's factory org, for the kill switch (switch.py).
+    "factory": ("SF_FACTORY_USERNAME", "SF_FACTORY_CLIENT_ID", "SF_FACTORY_URL", "https://login.salesforce.com",
+                "SF_FACTORY_JWT_KEY"),
 }
 
 
@@ -64,6 +67,12 @@ def login(who: str, alias: str) -> None:
     """Log in for a step that only uses this org directly (no scratch org creation through it)."""
     with session(who, alias):
         pass
+
+
+def access(alias: str) -> tuple[str, str]:
+    """(instance URL, access token) of a logged-in org, for a direct REST call. Never log the token."""
+    result = _sf("org", "display", "--target-org", alias, timeout=120)["result"]
+    return result["instanceUrl"].rstrip("/"), result["accessToken"]
 
 
 def logout(alias: str) -> None:

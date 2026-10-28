@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from . import agent, discuss, github, grounding, scope, trailers
+from . import agent, discuss, github, grounding, scope, switch, trailers
 from . import spec as specmod
 from .jira import Jira
 from .policy import Policy
@@ -19,6 +19,9 @@ ORG_ALIAS = "ticket-org"
 def prepare(key: str, requested_mode: str, pr_number: str | None, policy: Policy) -> dict:
     """Work out the base branch, the mode and what is left of the budget. Runs before the work tree exists."""
     require_key(key)
+    held = switch.paused(policy)
+    if held:
+        return switch.stop_run(held)
     base = github.base_for(key)
     branch = spec_branch(key)
     existing = github.open_pr(branch)
