@@ -44,7 +44,7 @@ jobs:
       FX: bash _kit/factory/bin/in-image
     steps:
       - name: Harden the runner
-        uses: step-security/harden-runner@v2.22.1
+        uses: step-security/harden-runner@v2.22.2
         with:
           egress-policy: audit
 
