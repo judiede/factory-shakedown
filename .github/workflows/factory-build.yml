@@ -62,7 +62,7 @@ jobs:
       SF_DEVHUB_URL: ${{ vars.SF_DEVHUB_URL }}
     steps:
       - name: Harden the runner
-        uses: step-security/harden-runner@v2.22.1
+        uses: step-security/harden-runner@v2.22.2
         with:
           egress-policy: audit
 

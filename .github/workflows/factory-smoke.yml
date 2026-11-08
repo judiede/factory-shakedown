@@ -26,7 +26,7 @@ jobs:
       SF_SANDBOX_URL: ${{ vars.SF_SANDBOX_URL }}
     steps:
       - name: Harden the runner
-        uses: step-security/harden-runner@v2.22.1
+        uses: step-security/harden-runner@v2.22.2
         with:
           egress-policy: audit
 
@@ -85,7 +85,7 @@ jobs:
       SF_SANDBOX_URL: ${{ vars.SF_SANDBOX_URL }}
     steps:
       - name: Harden the runner
-        uses: step-security/harden-runner@v2.22.1
+        uses: step-security/harden-runner@v2.22.2
         with:
           egress-policy: audit
 
